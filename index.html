@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fast Image Cropper</title>
+    <style>
+      #img-container {
+        position: relative;
+        display: inline-block;
+      }
+      #crop-rect {
+        position: absolute;
+        border: 2px dashed #00f;
+        background: rgba(0, 0, 255, 0.1);
+        pointer-events: none;
+      }
+      #preview {
+        border: 1px solid #ccc;
+        margin-top: 10px;
+      }
+      #coords {
+        margin-top: 5px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="file" id="file-input" accept="image/*" /><br />
+    <div id="img-container">
+      <img id="main-img" style="max-width: 500px; display: none" />
+      <div id="crop-rect" style="display: none"></div>
+    </div>
+    <div id="coords"></div>
+    <button id="apply-crop" disabled>Apply Crop</button>
+    <br />
+    <canvas id="preview" width="200" height="200"></canvas>
+    <script>
+      const fileInput = document.getElementById("file-input");
+      const mainImg = document.getElementById("main-img");
+      const cropRect = document.getElementById("crop-rect");
+      const coords = document.getElementById("coords");
+      const preview = document.getElementById("preview");
+      const applyCrop = document.getElementById("apply-crop");
+      let dragging = false,
+        startX,
+        startY,
+        crop = { x: 0, y: 0, w: 0, h: 0 };
+
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        mainImg.src = url;
+        mainImg.style.display = "";
+        cropRect.style.display = "none";
+        coords.textContent = "";
+        applyCrop.disabled = true;
+        preview.getContext("2d").clearRect(0, 0, preview.width, preview.height);
+      };
+
+      mainImg.onload = () => {
+        cropRect.style.display = "none";
+        applyCrop.disabled = true;
+      };
+
+      mainImg.onmousedown = (e) => {
+        if (!mainImg.src) return;
+        const rect = mainImg.getBoundingClientRect();
+        startX = Math.max(0, Math.min(e.clientX - rect.left, mainImg.width));
+        startY = Math.max(0, Math.min(e.clientY - rect.top, mainImg.height));
+        dragging = true;
+        cropRect.style.display = "";
+      };
+
+      mainImg.onmousemove = (e) => {
+        if (!dragging) return;
+        const rect = mainImg.getBoundingClientRect();
+        let x = Math.max(0, Math.min(e.clientX - rect.left, mainImg.width));
+        let y = Math.max(0, Math.min(e.clientY - rect.top, mainImg.height));
+        crop.x = Math.round(Math.min(startX, x));
+        crop.y = Math.round(Math.min(startY, y));
+        crop.w = Math.round(Math.abs(x - startX));
+        crop.h = Math.round(Math.abs(y - startY));
+        // Boundary checks
+        if (crop.x + crop.w > mainImg.width) crop.w = mainImg.width - crop.x;
+        if (crop.y + crop.h > mainImg.height) crop.h = mainImg.height - crop.y;
+        cropRect.style.left = crop.x + "px";
+        cropRect.style.top = crop.y + "px";
+        cropRect.style.width = crop.w + "px";
+        cropRect.style.height = crop.h + "px";
+        coords.textContent = `X:${crop.x} Y:${crop.y} W:${crop.w} H:${crop.h}`;
+        applyCrop.disabled = crop.w === 0 || crop.h === 0;
+      };
+
+      mainImg.onmouseup = () => {
+        dragging = false;
+      };
+      mainImg.onmouseleave = () => {
+        dragging = false;
+      };
+
+      applyCrop.onclick = () => {
+        if (!mainImg.src || crop.w === 0 || crop.h === 0) return;
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = crop.w;
+        tempCanvas.height = crop.h;
+        const ctx = tempCanvas.getContext("2d");
+        ctx.drawImage(
+          mainImg,
+          crop.x,
+          crop.y,
+          crop.w,
+          crop.h,
+          0,
+          0,
+          crop.w,
+          crop.h
+        );
+        // Preview scaled
+        const pctx = preview.getContext("2d");
+        preview.width = crop.w;
+        preview.height = crop.h;
+        pctx.clearRect(0, 0, preview.width, preview.height);
+        pctx.drawImage(tempCanvas, 0, 0);
+      };
+    </script>
+  </body>
+</html>
